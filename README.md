@@ -3,12 +3,27 @@
 A 32-bit x86 operating system built from scratch in C and x86 Assembly.
 
 ## Features
+
 - Custom bootloader
 - Protected mode
 - Shell commands
 - FAT12 filesystem support
 - Disk read/write support
 - Memory management and paging
+
+## Commands
+
+- ls — list files
+- cat — read files  
+- write — create files
+- rm — delete files
+- time — show current time
+- date — show current date
+- history — show command history
+- echo — print text
+- reboot — restart system
+- help — show all commands
+
 
 ## Requirements
 - NASM
@@ -18,6 +33,10 @@ A 32-bit x86 operating system built from scratch in C and x86 Assembly.
 - mtools
 
 ## Build
+
+Install requirements:
+```bash
+sudo apt install nasm gcc binutils qemu-system-x86 mtools
 
 ```bash
 # Build bootloader
