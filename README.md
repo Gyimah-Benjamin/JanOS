@@ -10,7 +10,63 @@ A 32-bit x86 operating system built from scratch in C and x86 Assembly.
 - Disk read/write support
 - Memory management and paging
 
+## Requirements
+- NASM
+- GCC
+- LD
+- QEMU
+- mtools
+
+## Build
+
+```bash
+# Build bootloader
+nasm -f bin boot.asm -o boot.bin
+
+# Compile kernel
+gcc -m32 -ffreestanding -fno-builtin -fno-pic -fno-pie -nostdlib -c kernel.c -o kernel.o
+gcc -m32 -ffreestanding -fno-builtin -fno-pic -fno-pie -nostdlib -c vga.c -o vga.o
+gcc -m32 -ffreestanding -fno-builtin -fno-pic -fno-pie -nostdlib -c keyboard.c -o keyboard.o
+gcc -m32 -ffreestanding -fno-builtin -fno-pic -fno-pie -nostdlib -c ata.c -o ata.o
+
+# Link kernel
+ld -m elf_i386 -T link.ld -o kernel.elf kernel.o vga.o keyboard.o ata.o
+
+# Convert ELF to raw binary
+objcopy -O binary kernel.elf kernel.bin
+
+# Combine bootloader and kernel
+cat boot.bin kernel.bin > os.bin
+```
+
+## Create Disk Image
+
+```bash
+# Create floppy image
+dd if=/dev/zero of=disk.img bs=512 count=2880
+
+# Format as FAT12
+mkfs.fat -F 12 disk.img
+
+# Add test file
+echo "Hello" > test.txt
+mcopy -i disk.img test.txt ::test.txt
+
+# Write bootloader
+dd if=boot.bin of=disk.img bs=446 count=1 conv=notrunc
+
+# Write kernel
+dd if=kernel.bin of=disk.img bs=512 seek=100 conv=notrunc
+```
+
+## Run
+
+```bash
+qemu-system-x86_64 -drive format=raw,file=disk.img
+```
+
 ## License
-Copyright (C) 2026 Gyimah-Benjamin 
+
+Copyright (C) 2026 Gyimah-Benjamin
 
 Licensed under the GNU General Public License v3.0.
