@@ -5,11 +5,16 @@ A 32-bit x86 operating system built from scratch in C and x86 Assembly.
 ## Features
 
 - Custom bootloader
-- Protected mode
+- 32-bit protected mode
 - Shell commands
 - FAT12 filesystem support
 - Disk read/write support
+- Persistent storage via ATA driver
 - Memory management and paging
+- Hardware cursor
+- Keyboard with shift support
+- History navigation with arrow keys
+- Screen Scrolling 
 
 ## Commands
 
