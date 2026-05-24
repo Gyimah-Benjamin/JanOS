@@ -89,6 +89,10 @@ dd if=kernel.bin of=disk.img bs=512 seek=100 conv=notrunc
 qemu-system-x86_64 -drive format=raw,file=disk.img
 ```
 
+##Screenshot
+
+![JanOS Screenshot](screenshot.png)
+
 ## License
 
 Copyright (C) 2026 Gyimah-Benjamin
