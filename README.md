@@ -91,7 +91,7 @@ qemu-system-x86_64 -drive format=raw,file=disk.img
 
 ##Screenshot
 
-![JanOS Screenshot](screenshot.png)
+![JanOS Screenshot](Screenshot.png)
 
 ## License
 
