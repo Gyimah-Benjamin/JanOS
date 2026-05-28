@@ -19,17 +19,17 @@ A 32-bit x86 operating system built from scratch in C and x86 Assembly.
 
 ## Commands
 
-- ls — list files
-- cat — read files  
-- write — create files
-- rm — delete files
-- time — show current time
-- date — show current date
-- history — show command history
-- echo — print text
-- reboot — restart system
-- help — show all commands
--uptime
+- ls - list files
+- cat - read files  
+- write - create files
+- rm - delete files
+- time - show current time
+- date - show current date
+- history - show command history
+- echo - print text
+- reboot - restart system
+- help - show all commands
+-uptime - show how long the system has been running since boot 
 
 ## Requirements
 - NASM
