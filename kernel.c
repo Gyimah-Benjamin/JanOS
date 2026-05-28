@@ -3,6 +3,9 @@
 #include "vga.h"
 #include "keyboard.h"
 #include "ata.h"
+#include "idt.h"
+#include "timer.h"
+#include "gdt.h"
 //#include "calcul.h"
 #define GREEN 0x02
 #define NO 0x0F
@@ -14,6 +17,7 @@ void shut();
 void write_file(char *filename, char *data, int size);
 void rm(char *filename);
 char history_store[10][255];
+extern char last_key;
 
 void init_history(){
 for(int i = 0; i < 10; i++){
@@ -167,6 +171,27 @@ void print_tim();
 
 void date();
 
+void print_uptime(){
+unsigned int seconds = ticks/18;
+unsigned int minutes = seconds/60;
+unsigned int hours = minutes/60;
+
+seconds = seconds % 60;
+minutes = minutes % 60;
+printY("Up-time:");
+print_char('0' + hours/10, GREEN);
+print_char('0' + hours%10, GREEN);
+
+printY(":");
+
+print_char('0' + minutes/10, GREEN);
+print_char('0' + minutes%10, GREEN);
+
+printY(":");
+
+print_char('0' + seconds/10, GREEN);
+print_char('0' + seconds%10, GREEN);
+}
 void shell(char* cmd){
 if(cmd[0] == 0){
 return;
@@ -176,7 +201,7 @@ printY("--------------------------Available commands--------------------------")
 newline();
 printY("----------->>>>>help, about, clear, version, echo, time<<<<<----------");
 newline();
-printY("-------->>>>>date, reboot, history, ls, cat, write, rm<<<<<----------");
+printY("-------->>>>>date, reboot, history, ls, cat, write, rm, uptime<<<<<----------");
 newline();
 }
 else if(strcmp(cmd, "about")){
@@ -214,6 +239,11 @@ newline();
 
 else if(strcmp(cmd, "shutdown")){
 shut();
+newline();
+}
+
+else if(strcmp(cmd, "uptime")){
+print_uptime();
 newline();
 }
 
@@ -262,7 +292,6 @@ else if(cmd[0] == 'r' && cmd[1] == 'm' && cmd[2] == ' '){
 rm(cmd + 3);
 newline();
 }
-
 //else if(cmd[0] == 'c' && cmd[1] == 'a' && cmd[2] == 'l' && cmd[3] == 'c' && cmd[4] == ' '){
 //calc(cmd + 5,strlen(cmd + 5));
 //newline();
@@ -595,6 +624,8 @@ __attribute__((section(".text.kernel_main")))
 void kernel_main() {
     init_history();
     clear_screen();
+    init_gdt();
+    initialize_pic();
     set_page_table();
     paging();
 //    clear_screen();
@@ -611,17 +642,18 @@ int pro = 0;
 print("~$ ");
 pro = cursor;
     while (1) {
-char c = get_key();
+if(last_key){
 
-if(c == '\b' && cursor > pro){
+if(last_key == '\b' && cursor > pro){
 position--;
 cursor--;
 print_char(' ', NO);
 cursor--;
 cur();
+last_key = 0;
 }
 
-else if(c == DOWN){
+else if(last_key == DOWN){
 if(arrow_count > 0){
 arrow_count--;
 }
@@ -646,9 +678,10 @@ print_char(buffer[i], VIOLET);
 }
 position = i;
 }
+last_key = 0;
 }
 
-else if(c == UP){
+else if(last_key == UP){
     if(arrow_count < 10 && arrow_count < history_count){
         arrow_count++;
     }
@@ -672,9 +705,10 @@ else if(c == UP){
         i++;
     }
     position = i;
+    last_key = 0;
 }
 
-else if(c == '\n'){
+else if(last_key == '\n'){
 buffer[position] = 0;
 
 if(position > 0){
@@ -693,13 +727,15 @@ shell(buffer);
 position = 0;
 print("~$ ");
 pro = cursor;
+last_key = 0;
 }
 
-else if(c != 0){
-buffer[position] = c;
-print_char(c, NO);
+else if(last_key != 0){
+buffer[position] = last_key;
+print_char(last_key, NO);
 position++;
 }
+last_key = 0;
 }
 }
- 
+}
