@@ -6,7 +6,7 @@ A 32-bit x86 operating system built from scratch in C and x86 Assembly.
 
 - Custom bootloader
 - 32-bit protected mode
-- Shell commands
+- Shell commands + uptime
 - FAT12 filesystem support
 - Disk read/write support
 - Persistent storage via ATA driver
@@ -14,7 +14,8 @@ A 32-bit x86 operating system built from scratch in C and x86 Assembly.
 - Hardware cursor
 - Keyboard with shift support
 - History navigation with arrow keys
-- Screen Scrolling 
+- Screen Scrolling
+- Timer and keyboards interrupt working 
 
 ## Commands
 
@@ -28,7 +29,7 @@ A 32-bit x86 operating system built from scratch in C and x86 Assembly.
 - echo — print text
 - reboot — restart system
 - help — show all commands
-
+-uptime
 
 ## Requirements
 - NASM
@@ -46,15 +47,20 @@ sudo apt install nasm gcc binutils qemu-system-x86 mtools
 ```bash
 # Build bootloader
 nasm -f bin boot.asm -o boot.bin
+nasm -f elf32 inter.asm -o inter.o
 
 # Compile kernel
 gcc -m32 -ffreestanding -fno-builtin -fno-pic -fno-pie -nostdlib -c kernel.c -o kernel.o
 gcc -m32 -ffreestanding -fno-builtin -fno-pic -fno-pie -nostdlib -c vga.c -o vga.o
 gcc -m32 -ffreestanding -fno-builtin -fno-pic -fno-pie -nostdlib -c keyboard.c -o keyboard.o
 gcc -m32 -ffreestanding -fno-builtin -fno-pic -fno-pie -nostdlib -c ata.c -o ata.o
+gcc -m32 -ffreestanding -fno-builtin -fno-pic -fno-pie -nostdlib -c idt.c -o idt.o
+gcc -m32 -ffreestanding -fno-builtin -fno-pic -fno-pie -nostdlib -c timer.c -o timer.o
+gcc -m32 -ffreestanding -fno-builtin -fno-pic -fno-pie -nostdlib -c gdt.c -o gdt.o
+
 
 # Link kernel
-ld -m elf_i386 -T link.ld -o kernel.elf kernel.o vga.o keyboard.o ata.o
+ld -m elf_i386 -T link.ld -o kernel.elf kernel.o vga.o keyboard.o ata.o idt.o inter.o timer.o gdt.o
 
 # Convert ELF to raw binary
 objcopy -O binary kernel.elf kernel.bin
