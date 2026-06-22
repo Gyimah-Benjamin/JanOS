@@ -2,8 +2,9 @@
 #define KEYBOARD_H
 #define UP 1
 #define DOWN 2
-extern char last_key;
+extern  char last_key;
 extern int shift;
+extern char low[];
 
 unsigned char port_read(unsigned short port);
 void port_send(unsigned short port, unsigned short value);

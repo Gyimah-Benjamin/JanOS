@@ -33,6 +33,17 @@ continue_boot:
     xor ax, ax
     mov es, ax
 
+    mov ax, 0x4F01
+    mov cx, 0x0118
+    mov di, 0x7E00
+    int 0x10
+
+    mov ax, 0x4F02
+    mov bx, 0x0118
+    or bx, 0x4000
+    int 0x10
+
+
     in al, 0x92
     or al, 2
     out 0x92, al
@@ -48,7 +59,7 @@ continue_boot:
 dap:
     db 0x10
     db 0
-    dw 30
+    dw 51
     dw 0x0000
     dw 0x0100
     dq 100

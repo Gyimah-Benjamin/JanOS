@@ -6,18 +6,29 @@
 #include "idt.h"
 #include "timer.h"
 #include "gdt.h"
+#include "font.h"
+#include "win.h"
 //#include "calcul.h"
 #define GREEN 0x02
 #define NO 0x0F
 #define GREY 0x07
 #define YELLOW 0x0E
 #define VIOLET 0x05
+#define BLACK 0x00000000
+#define WHITE 0x00FFFFFF
 void reeb();
 void shut();
 void write_file(char *filename, char *data, int size);
 void rm(char *filename);
 char history_store[10][255];
-extern char last_key;
+unsigned char* screen;
+unsigned int column = 1024;
+unsigned int row = 768;
+int track_x = 65;
+int track_y = 120 + 5 + 10 + 10;
+int track_y1 = 120 + 5 + 10 + 10;
+int ad_ten = 0;
+int letter_track = 145;
 
 void init_history(){
 for(int i = 0; i < 10; i++){
@@ -56,7 +67,7 @@ void ls(){
 char* sector = (char*)my_malloc(512);
 struct Dir* level;
 for(int s = 0; s < 14; s++){
-read_sector(ROOT_DIR_START + s, sector);
+ata_read(ROOT_DIR_START + s, sector);
 level = (struct Dir*)sector;
 
 for(int i = 0; i < SECTOR_SIZE/sizeof(struct Dir); i++){
@@ -71,29 +82,65 @@ if((level + i) -> attributes == 0x0F){
 continue;
 }
 
+if(point_maxim.maxim_flag == 1){
+track_y1 = 120 + 5 + 10;
+track_x += 14;
+ad_ten += 14;
 for(int j = 0; j < 8; j++){
 if((level + i) -> name[j] == ' '){
 break;
 }
-print_char((level + i) -> name[j], GREEN);
+track_y1 += 10;
+draw_char(track_x, track_y1, (level + i) -> name[j], TASK_BG, TEXT_B);
 }
 
 if((level + i) -> ext[0] != ' '){
-print_char('.', GREEN);
+track_y1 += 10;
+draw_char(track_x, track_y1, '.', TASK_BG, TEXT_B);
 for(int j = 0; j < 3; j++){
 if((level + i) -> ext[j] == ' '){
 break;
 }
-print_char((level + i) -> ext[j], GREEN);
+track_y1 += 10;
+draw_char(track_x, track_y1, (level + i) -> ext[j], TASK_BG, TEXT_B);
 }
 }
-newline();
+}
+else if(point_maxim.maxim_flag == 0){
+track_x += 14;
+ad_ten += 14;
+track_y1 = 5;
+for(int j = 0; j < 8; j++){
+if((level + i) -> name[j] == ' '){
+break;
+}
+track_y1 += 10;
+draw_char(track_x, track_y1, (level + i) -> name[j], TASK_BG, TEXT_B);
+}
+
+if((level + i) -> ext[0] != ' '){
+track_y1 += 10;
+draw_char(track_x, track_y1, '.', TASK_BG, TEXT_B);
+for(int j = 0; j < 3; j++){
+if((level + i) -> ext[j] == ' '){
+break;
+}
+track_y1 += 10;
+draw_char(track_x, track_y1, (level + i) -> ext[j], TASK_BG, TEXT_B);
+}
+}
+term_newline_max();
+
+}
 }
 }
 my_free(sector);
 }
 
 void cat(char *filename) {
+    track_y1 = 120 + 10 + 5;
+    track_x += 14;
+    ad_ten += 14;
     char *sector = (char*)my_malloc(512);
     struct Dir *level;
 
@@ -115,11 +162,20 @@ void cat(char *filename) {
     }
 
     for (int s = 0; s < 14; s++) {
-        read_sector(ROOT_DIR_START + s, sector);
+        ata_read(ROOT_DIR_START + s, sector);
         level = (struct Dir*)sector;
 
         for (int i = 0; i < SECTOR_SIZE / sizeof(struct Dir); i++) {
-            if ((level+i)->name[0] == 0x00) { my_free(sector); printR("File not found"); return; }
+            if ((level+i)->name[0] == 0x00) {
+                   my_free(sector);
+                   if(point_maxim.maxim_flag == 1){
+                   cur_clear_b();
+                   string(track_x, track_y1, "File not found", DESK_BG, TEXT_B);
+                   }
+                   else if(point_maxim.maxim_flag == 0){
+                   string(track_x, track_y1, "File not found", DESK_BG, TEXT_B);
+                   }
+                   return; }
             if ((level+i)->name[0] == 0xE5) continue;
             if ((level+i)->attributes == 0x0F) continue;
 
@@ -141,7 +197,7 @@ void cat(char *filename) {
                 for(int k = 0; k < size; k++){
                 file_buf[k] = 0;
                 }
-                read_sector(sector_num, file_buf);
+                ata_read(sector_num, file_buf);
 
                 newline();
                 for(int k = 0; k < size; k++){
@@ -152,9 +208,22 @@ void cat(char *filename) {
                 newline();
                 continue;
                 }
-                print_char(file_buf[k], YELLOW);
+                if(point_maxim.maxim_flag == 1){
+                 if(track_y1 >= 845){
+                  cur_clear();
+                  track_y1 = 120 + 10 + 5;
+                  track_x += 14;
+                  ad_ten += 14;
+                  }
+                cur_clear();
+                draw_char(track_x, track_y1, file_buf[k], DESK_BG, TEXT_B);
+                track_y1 += 10;
                 }
-                newline();
+                else if(point_maxim.maxim_flag == 0){
+                draw_char(track_x, track_y1, file_buf[k], DESK_BG, TEXT_B);
+                track_y1 += 10;
+                }
+                }
 
                 my_free(file_buf);
                 my_free(sector);
@@ -163,8 +232,13 @@ void cat(char *filename) {
         }
     }
     my_free(sector);
-    printR("File not found");
-    newline();
+    if(point_maxim.maxim_flag == 1){
+    cur_clear_b();
+    string(track_x, track_y1, "File not found", DESK_BG, TEXT_B);
+    }
+    else if(point_maxim.maxim_flag == 0){
+    string(track_x, track_y1, "File not found", DESK_BG, TEXT_B);
+    }
 }
 
 void print_tim();
@@ -178,43 +252,124 @@ unsigned int hours = minutes/60;
 
 seconds = seconds % 60;
 minutes = minutes % 60;
-printY("Up-time:");
-print_char('0' + hours/10, GREEN);
-print_char('0' + hours%10, GREEN);
+if(point_maxim.maxim_flag == 1){
+track_x += 14;
+ad_ten += 14;
+track_y1 = 120 + 5 + 10;
+string(track_x, track_y1, "Up-time:", TASK_BG, TEXT_B);
 
-printY(":");
+draw_char(track_x, track_y1, '0' + hours/10, TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '0' + hours%10, TASK_BG, TEXT_B);
+track_y1 += 10;
 
-print_char('0' + minutes/10, GREEN);
-print_char('0' + minutes%10, GREEN);
+string(track_x, track_y1, ":", TASK_BG, TEXT_B);
 
-printY(":");
+draw_char(track_x, track_y1, '0' + minutes/10, TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '0' + minutes%10, TASK_BG, TEXT_B);
+track_y1 += 10;
 
-print_char('0' + seconds/10, GREEN);
-print_char('0' + seconds%10, GREEN);
+string(track_x, track_y1, ":", TASK_BG, TEXT_B);
+
+draw_char(track_x, track_y1, '0' + seconds/10, TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '0' + seconds%10, TASK_BG, TEXT_B);
+}
+else if(point_maxim.maxim_flag == 0){
+track_x += 14;
+ad_ten += 14;
+track_y1 = 5;
+string(track_x, track_y1, "Up-time:", TASK_BG, TEXT_B);
+
+draw_char(track_x, track_y1, '0' + hours/10, TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '0' + hours%10, TASK_BG, TEXT_B);
+track_y1 += 10;
+
+string(track_x, track_y1, ":", TASK_BG, TEXT_B);
+
+draw_char(track_x, track_y1, '0' + minutes/10, TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '0' + minutes%10, TASK_BG, TEXT_B);
+track_y1 += 10;
+
+string(track_x, track_y1, ":", TASK_BG, TEXT_B);
+
+draw_char(track_x, track_y1, '0' + seconds/10, TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '0' + seconds%10, TASK_BG, TEXT_B);
+}
 }
 void shell(char* cmd){
 if(cmd[0] == 0){
 return;
 }
 if(strcmp(cmd, "help")){
-printY("--------------------------Available commands--------------------------");
-newline();
-printY("----------->>>>>help, about, clear, version, echo, time<<<<<----------");
-newline();
-printY("-------->>>>>date, reboot, history, ls, cat, write, rm, uptime<<<<<----------");
-newline();
+if(point_maxim.maxim_flag == 1){
+track_x += 14;
+ad_ten += 14;
+track_y1 = 120 + 5 + 10;
+string(track_x, track_y1, "--------------------------Available commands---------------------", TASK_BG, TEXT_B);
+track_x += 14;
+ad_ten += 14;
+track_y1 = 120 + 5 + 10;
+string(track_x, track_y1,"------>>>>>help, about, clear, version, echo, rm, time<<<<<------", TASK_BG, TEXT_B);
+track_x += 14;
+ad_ten += 14;
+track_y1 = 120 + 5 + 10;
+string(track_x, track_y1,"---->>>>>date, reboot, history, ls, cat, write, uptime<<<<<-----",TASK_BG, TEXT_B);
 }
+else if(point_maxim.maxim_flag == 0){
+track_x += 14;
+ad_ten += 14;
+track_y1 = 5;
+string(track_x, track_y1, "--------------------------Available commands---------------------", TASK_BG, TEXT_B);
+track_x += 14;
+ad_ten += 14;
+track_y1 = 5;
+string(track_x, track_y1,"------>>>>>help, about, clear, version, echo, rm, time<<<<<------", TASK_BG, TEXT_B);
+track_x += 14;
+ad_ten += 14;
+track_y1 = 5;
+string(track_x, track_y1,"---->>>>>date, reboot, history, ls, cat, write, uptime<<<<<-----",TASK_BG, TEXT_B);
+}
+}
+
 else if(strcmp(cmd, "about")){
-printY("JanOS Corporation.");
-newline();
+if(point_maxim.maxim_flag == 1){
+track_x += 14;
+ad_ten += 14;
+track_y1 = 120 + 5 + 10;
+string(track_x, track_y1, "Jan Operating System .", TASK_BG, TEXT_B);
+}
+
+else if(point_maxim.maxim_flag == 0){
+track_x += 14;
+ad_ten += 14;
+track_y1 = 5;
+string(track_x, track_y1, "Jan Operating System .", TASK_BG, TEXT_B);
+}
 }
 
 else if(strcmp(cmd, "clear")){
 clear_screen();
 }
 else if(strcmp(cmd, "version")){
-printY("Version 1.0x");
-newline();
+if(point_maxim.maxim_flag == 1){
+track_x += 14;
+ad_ten += 14;
+track_y1 = 120 + 5 + 10;
+
+string(track_x, track_y1, "Version 1.0x", TASK_BG, TEXT_B);
+}
+
+else if(point_maxim.maxim_flag == 0){
+track_x += 14;
+ad_ten += 14;
+track_y1 = 5;
+string(track_x, track_y1, "Version 1.0x", TASK_BG, TEXT_B);
+}
 }
 
 else if(cmd[0] == 'e' && cmd[1] == 'c' && cmd[2] == 'h' && cmd[3] == 'o' && cmd[4] == ' '){
@@ -224,27 +379,23 @@ newline();
 
 else if(strcmp(cmd, "time")){
 print_tim();
-newline();
 }
 
 else if(strcmp(cmd, "date")){
 date();
-newline();
 }
 
 else if(strcmp(cmd, "reboot")){
 reeb();
-newline();
+term_newline();
 }
 
 else if(strcmp(cmd, "shutdown")){
 shut();
-newline();
 }
 
 else if(strcmp(cmd, "uptime")){
 print_uptime();
-newline();
 }
 
 else if(strcmp(cmd, "history")){
@@ -298,8 +449,10 @@ newline();
 //}
 
 else{
-printR("Command does not exist yet.");
-newline();
+ad_ten += 14;
+track_x += 14;
+track_y1 = 120 + 5 + 10;
+string(track_x, track_y1, "Command does not exist yet.", RED, TEXT_B);
 }
 }
 
@@ -369,26 +522,27 @@ ext[2] = 'T';
 
 int cluster = find_cluster();
 if(cluster == -1){
-printR("Disk full");
+cur_clear();
+track_y1 = 120 + 10 + 5;
+track_x += 14;
+ad_ten += 14;
+string(track_x, track_y1, "Disk full", DESK_BG, TEXT_B);
 my_free(sector);
 return;
 }
 
 char *fat = (char*)my_malloc(512);
-read_sector(FAT_START, fat);
+char *dst = (char*)my_malloc(512);
+
+ata_read(FAT_START, fat);
 clus_taken(fat, cluster);
 
-char *disk = (char*)0x9000;
-char *real_fat = disk + (FAT_START * SECTOR_SIZE);
-for(int i = 0; i < 512; i++){
-real_fat[i] = fat[i];
-}
-ata_write(FAT_START, real_fat);
+ata_write(FAT_START, fat);
 
 my_free(fat);
 
 for(int s = 0; s < 14; s++){
-read_sector(ROOT_DIR_START + s, sector);
+ata_read(ROOT_DIR_START + s, sector);
 struct Dir *level = (struct Dir*)sector;
 
 for(int i = 0; i < SECTOR_SIZE/sizeof(struct Dir); i++){
@@ -410,9 +564,22 @@ break;
 }
 
 if(exist){
-printR("File already exist");
-newline();
+if(point_maxim.maxim_flag == 1){
+cur_clear();
+track_y1 = 120 + 5 + 10;
+track_x += 14;
+ad_ten += 14;
+string(track_x, track_y1,"File already exist", DESK_BG, TEXT_B);
 return;
+}
+else if(point_maxim.maxim_flag == 0){
+cur_clear();
+track_y1 = 120 + 10 + 5;
+track_x += 14;
+ad_ten += 14;
+string(track_x, track_y1,"File already exist", DESK_BG, TEXT_B);
+return;
+}
 }
 }
 for(int i = 0; i < SECTOR_SIZE/sizeof(struct Dir); i++){
@@ -430,28 +597,32 @@ for(int j = 0; j < 3; j++){
 (level + i) -> first_cluster = cluster;
 (level + i) -> file_size = size;
 
-char *real_dir = disk + ((ROOT_DIR_START +s) * SECTOR_SIZE);
-for(int j = 0; j < 512; j++){
-real_dir[j] = sector[j];
-}
-ata_write(ROOT_DIR_START+s, real_dir);
+ata_write(ROOT_DIR_START+s, sector);
 
-char *dst = disk + ((DATA_START + cluster -2) * SECTOR_SIZE);
+for(int i = 0; i < 512; i++){
+dst[i] = 0;
+}
 for(int j = 0; j < size; j++){
 dst[j] = data[j];
 }
 ata_write(DATA_START + cluster -2, dst);
-
+my_free(dst);
 my_free(sector);
-printY("File written successfully");
-newline();
+cur_clear();
+track_y1 = 120 + 10 + 5;
+track_x += 14;
+ad_ten += 14;
+string(track_x, track_y1, "File written successfully", DESK_BG, TEXT_B);
 return;
 }
 }
 }
 my_free(sector);
-printR("Disk is full");
-newline();
+cur_clear();
+track_y1 = 120 + 10 + 5;
+track_x += 14;
+ad_ten += 14;
+string(track_x, track_y1, "Disk is full", DESK_BG, TEXT_B);
 }
 
 void rm(char *filename){
@@ -480,7 +651,7 @@ char *sector = (char*)my_malloc(512);
 struct Dir *level = (struct Dir*)sector;
 
 for(int s = 0; s < 14; s++){
-read_sector(ROOT_DIR_START + s, sector);
+ata_read(ROOT_DIR_START + s, sector);
 
 for(int i = 0; i < SECTOR_SIZE/sizeof(struct Dir); i++){
 if((level + i) -> name[0] == 0x00){
@@ -510,12 +681,14 @@ v++;
 if(match){
 
 (level + i) -> name[0] = 0xE5;
-printY("File deleted");
-newline();
-
+cur_clear();
+track_y1 = 120 + 10 + 5;
+track_x += 14;
+ad_ten += 14;
+string(track_x, track_y1, "File deleted", DESK_BG, TEXT_B);
 char *buff = (char*)my_malloc(512);
 
-read_sector(FAT_START, buff);
+ata_read(FAT_START, buff);
 
 int cluster = (level + i) -> first_cluster;
 int cluster_i = cluster + (cluster/2);
@@ -530,26 +703,21 @@ buff[cluster_i] = (buff[cluster_i] & 0x0F);
 buff[cluster_i + 1] = 0x00;
 }
 
-char *disk = (char*)0x9000;
-char *fat = disk + (FAT_START * SECTOR_SIZE);
-for(int n = 0; n < 512; n++){
-fat[n] = buff[n];
-}
-ata_write(FAT_START, fat);
+ata_write(FAT_START, buff);
 my_free(buff);
 
-char *dir_T = disk + ((ROOT_DIR_START + s) * SECTOR_SIZE);
-for(int m = 0; m < 512; m++){
-dir_T[m] = sector[m];
-}
-ata_write(ROOT_DIR_START + s, dir_T);
+ata_write(ROOT_DIR_START + s, sector);
 my_free(sector);
 return;
 }
 
 }
 }
-printR("File does not exist");
+cur_clear_b();
+track_y1 = 120 + 10 + 5;
+track_x += 14;
+ad_ten += 14;
+string(track_x, track_y1, "File does not exist", DESK_BG, TEXT_B);
 my_free(sector);
 return;
 }
@@ -572,19 +740,56 @@ unsigned char seconds = rtc(0x00);
 hours = ((hours >> 4)*10 + (hours & 0x0F));
 minutes = ((minutes >> 4)*10 + (minutes & 0x0F));
 seconds = ((seconds >> 4)*10 + (seconds & 0x0F));
+if(point_maxim.maxim_flag == 1){
+track_x += 14;
+ad_ten += 14;
+track_y1 = 120 + 5 + 10;
 
-print_char('0' + hours/10, GREEN);
-print_char('0' + hours%10, GREEN);
+draw_char(track_x, track_y1, '0' + hours/10, TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '0' + hours%10, TASK_BG, TEXT_B);
 
-print_char(':', GREEN);
+track_y1 += 10;
+draw_char(track_x, track_y1, ':', TASK_BG, TEXT_B);
+track_y1 += 10;
 
-print_char('0' + minutes/10, GREEN);
-print_char('0' + minutes%10, GREEN);
+draw_char(track_x, track_y1, '0' + minutes/10, TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '0' + minutes%10, TASK_BG, TEXT_B);
+track_y1 += 10;
 
-print_char(':', GREEN);
+draw_char(track_x, track_y1, ':', TASK_BG, TEXT_B);
+track_y1 += 10;
 
-print_char('0' + seconds/10, GREEN);
-print_char('0' + seconds%10, GREEN);
+draw_char(track_x, track_y1, '0' + seconds/10, TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '0' + seconds%10, TASK_BG, TEXT_B);
+}
+else if(point_maxim.maxim_flag == 0){
+track_x += 14;
+ad_ten += 14;
+track_y1 = 5;
+
+draw_char(track_x, track_y1, '0' + hours/10, TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '0' + hours%10, TASK_BG, TEXT_B);
+
+track_y1 += 10;
+draw_char(track_x, track_y1, ':', TASK_BG, TEXT_B);
+track_y1 += 10;
+
+draw_char(track_x, track_y1, '0' + minutes/10, TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '0' + minutes%10, TASK_BG, TEXT_B);
+track_y1 += 10;
+
+draw_char(track_x, track_y1, ':', TASK_BG, TEXT_B);
+track_y1 += 10;
+
+draw_char(track_x, track_y1, '0' + seconds/10, TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '0' + seconds%10, TASK_BG, TEXT_B);
+}
 }
 
 void date(){
@@ -595,21 +800,57 @@ unsigned char year = rtc(0x09);
 day = (day >> 4)*10 + (day & 0x0F);
 month = (month >> 4)*10 + (month & 0x0F);
 year = (year >> 4)*10 + (year & 0x0F);
-print_char('0' + day/10, GREEN);
-print_char('0' + day%10, GREEN);
 
-print_char('/', GREEN);
+if(point_maxim.maxim_flag == 1){
+track_x += 14;
+ad_ten += 14;
+track_y1 = 120 + 5 + 10;
 
-print_char('0' + month/10, GREEN);
-print_char('0' + month%10, GREEN);
+draw_char(track_x, track_y1, '0' + day/10, TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '0' + day%10, TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '/', TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '0' + month/10, TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '0' + month%10, TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '/', TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '2', TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '0', TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '0' + year/10, TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '0' + year%10, TASK_BG, TEXT_B);
+}
 
-print_char('/', GREEN);
-
-print_char('2', GREEN);
-print_char('0', GREEN);
-print_char('0' + year/10, GREEN);
-print_char('0' + year%10, GREEN);
-
+else if(point_maxim.maxim_flag == 0){
+track_x += 14;
+ad_ten += 14;
+track_y1 = 5;
+draw_char(track_x, track_y1, '0' + day/10, TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '0' + day%10, TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '/', TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '0' + month/10, TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '0' + month%10, TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '/', TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '2', TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '0', TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '0' + year/10, TASK_BG, TEXT_B);
+track_y1 += 10;
+draw_char(track_x, track_y1, '0' + year%10, TASK_BG, TEXT_B);
+}
 }
 
 
@@ -622,13 +863,14 @@ port_send(0x604, 0x2000);
 }
 __attribute__((section(".text.kernel_main")))
 void kernel_main() {
-    init_history();
-    clear_screen();
     init_gdt();
     initialize_pic();
-    set_page_table();
-    paging();
-//    clear_screen();
+    init_history();
+    init_screen();
+    boot_anime();
+    //set_page_table();
+    //paging();
+
     print("                   ");
     print("Jan Operating System Version 1.0");
     newline();
@@ -638,19 +880,45 @@ int browse = 0;
 int arrow_count = 0;
 int position = 0;
 int pro = 0;
-
-print("~$ ");
+int blink = 0;
 pro = cursor;
     while (1) {
+if(point_maxim.maxim_flag == 1){
+if((ticks / 15) % 2 == 0){
+cur();
+}
+else{
+cur_clear();
+}
+}
 if(last_key){
-
-if(last_key == '\b' && cursor > pro){
+if(point_maxim.maxim_flag == 1 && last_key == '\b' && letter_track > 145){
+if(track_y <= 145){
+cur_clear();
+track_x -= 14;
+ad_ten -= 14;
+track_y = 845;
+cur_clear();
+}
 position--;
-cursor--;
-print_char(' ', NO);
-cursor--;
+track_y -= 10;
+track_y1 -= 10;
+cur_clear_b();
+draw_char(track_x, track_y, ' ', TEXT_W, TEXT_B);
+buffer[position] = 0;
 cur();
 last_key = 0;
+letter_track -= 10;
+}
+
+
+else if(point_maxim.maxim_flag == 0 && last_key == '\b' && letter_track > 25){
+position--;
+track_y -= 10;
+draw_char(track_x, track_y, ' ', TEXT_W, TEXT_B);
+cur();
+last_key = 0;
+letter_track -= 10;
 }
 
 else if(last_key == DOWN){
@@ -710,7 +978,6 @@ else if(last_key == UP){
 
 else if(last_key == '\n'){
 buffer[position] = 0;
-
 if(position > 0){
 int i;
 for(i = 0; buffer[i] != 0; i++){
@@ -722,18 +989,81 @@ history_store[history_count % 10][i] = 0;
 history_count++;
 arrow_count = 0;
 }
-newline();
+cur_clear();
 shell(buffer);
+if(point_maxim.maxim_flag == 1){
+term_newline();
+cur();
+}
+else if(point_maxim.maxim_flag == 0){
+term_newline_max();
+}
 position = 0;
-print("~$ ");
-pro = cursor;
+
 last_key = 0;
 }
 
+else if(last_key == 'M'){
+if(point_maxim.maxim_flag == 0){
+draw_desktop();
+terminal(30, 120, TERM_Y, TERM_X, TERM_TITLE, "Jan Terminal");
+point_maxim.maxim_flag = 1;
+ad_ten = 0;
+track_x = 65;
+track_y = 120 + 5 + 10 + 10;
+letter_track = 145;
+cur();
+}
+else if(point_maxim.maxim_flag == 1){
+
+terminal_max(0, 0, SCREEN_W, MAXIMUM, TERM_TITLE, "Jan Terminal");
+point_maxim.maxim_flag = 0;
+ad_ten = 0;
+track_x = 35;
+track_y = 25;
+letter_track = 25;
+}
+}
+
+else if(last_key == 'X'){
+if(point_maxim.maxim_flag == 0){
+terminal_close(0, 0, SCREEN_W, MAXIMUM, TERM_TITLE, "Jan Terminal");
+point_maxim.maxim_flag = 1;
+}
+
+else if(point_maxim.maxim_flag == 1){
+terminal_close(30, 120, TERM_Y, TERM_X, TERM_TITLE, "Jan Terminal");
+point_maxim.maxim_flag = 0;
+}
+}
+
 else if(last_key != 0){
+if(point_maxim.maxim_flag == 1){
+if(track_y >= 845){
+cur_clear();
+term_newline_xpromt();
+}
 buffer[position] = last_key;
-print_char(last_key, NO);
+cur_clear();
+draw_char(track_x,track_y, last_key,TEXT_W,TEXT_B);
+track_y += 10;
+track_y1 += 10;
+cur();
 position++;
+letter_track += 10;
+}
+
+else if(point_maxim.maxim_flag == 0){
+if(track_y >= 1024){
+term_newline_max();
+position = 0;
+}
+buffer[position] = last_key;
+draw_char(track_x,track_y, last_key,TEXT_W,TEXT_B);
+track_y += 10;
+position++;
+letter_track += 10;
+}
 }
 last_key = 0;
 }

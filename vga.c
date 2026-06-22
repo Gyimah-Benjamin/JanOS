@@ -7,7 +7,7 @@
 
 int cursor = 0;
 
-void port_send(unsigned short port, unsigned short value);
+//void port_send(unsigned short port, unsigned short value);
 
 void scroll() {
     char *video = (char*)VIDEO_MEMORY;
@@ -27,12 +27,12 @@ void scroll() {
     cursor -= 80;
 }
 
-void cur() {
-    port_send(0x3D4, 0x0F);
-    port_send(0x3D5, cursor & 0xFF);
-    port_send(0x3D4, 0x0E);
-    port_send(0x3D5, (cursor >> 8) & 0xFF);
-}
+//void cur() {
+  //  port_send(0x3D4, 0x0F);
+    //port_send(0x3D5, cursor & 0xFF);
+    //port_send(0x3D4, 0x0E);
+    //port_send(0x3D5, (cursor >> 8) & 0xFF);
+//}
 
 void print_char(char c, char color) {
     if (cursor >= 25*80) scroll();
